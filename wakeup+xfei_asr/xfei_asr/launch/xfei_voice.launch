@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="wakeup" type="demo.py" name="wakeup" output="screen">
+  </node>
+
+  <node pkg="xfei_asr" type="iat_publish_speak" name="xfspeech" output="screen">
+  </node>
+
+  <node pkg="xfei_asr" type="tts_subscribe_speak" name="xf_tts" output="screen">
+  </node>
+
+  <node pkg="xfei_asr" type="sub_word" name="sub_word" output="screen">
+  </node>
+
+
+</launch>
