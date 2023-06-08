@@ -6,21 +6,21 @@ from yzmr9_msgs.msg import Envirment_data
 import serial
 import time
 
-noiseQuery = "02 03 00 00 00 01 84 39"          # 噪声传感器问询帧
+noiseQuery = "02 03 00 00 00 01 84 39"              # 噪声传感器问询帧
 
 def main():
-    ser1 = serial.Serial('/dev/ttyUSB5', 9600)  # 选择串口，设置波特率
-    ser2 = serial.Serial('/dev/ttyUSB4', 9600)  # 选择串口，设置波特率
+    ser1 = serial.Serial('/dev/noise', 9600)        # 选择串口，设置波特率
+    ser2 = serial.Serial('/dev/environment', 9600)  # 选择串口，设置波特率
 
     rospy.init_node('environment_node')
     environment_pub = rospy.Publisher('environment_pub', Envirment_data, queue_size = 10)
     noise_pub = rospy.Publisher('noise_pub', Robot_button, queue_size = 10)
-    msgEnvironment = Envirment_data()           # 创建 msg 对象
-    msgNoise = Robot_button()                   # 创建 msg 对象
+    msgEnvironment = Envirment_data()               # 创建 msg 对象
+    msgNoise = Robot_button()                       # 创建 msg 对象
 
     if (ser1.is_open and ser2.is_open):
-        print("environment port open success")
-        print("noise port open success")
+        rospy.loginfo("\033[32m环境传感器串口打开成功\033[0m")
+        rospy.loginfo("\033[32m噪声传感器串口打开成功\033[0m")
 
         # 设置循环频率
         rate = rospy.Rate(1)
@@ -90,7 +90,7 @@ def main():
             rate.sleep()
 
     else:
-        print("environment or noise port open failed")
+        rospy.logwarn("环境或噪声传感器串口打开异常")
 
 # CRC16校验
 def crc16(data):

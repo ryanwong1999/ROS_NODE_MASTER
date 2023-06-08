@@ -9,7 +9,11 @@
 #include <signal.h>
 // #include <robotserial.h>
 #include "std_msgs/String.h"
+#include <geometry_msgs/Twist.h>
 #include "yzmr9_msgs/Ultrasound_result.h"
+
+yzmr9_msgs::Ultrasound_result msgs;
+geometry_msgs::Twist cmd_vel;
 
 int ultraFlag1 = 0;
 int ultraFlag2 = 0;
@@ -27,6 +31,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     //发布主题
     ros::Publisher ultra_pub = nh.advertise<yzmr9_msgs::Ultrasound_result>("Ultrasound_result", 10);
+    ros::Publisher pub_cmd = nh.advertise<geometry_msgs::Twist>("cmd_vel",1);
     //创建timeout
     serial::Timeout to = serial::Timeout::simpleTimeout(1000);
     //创建一个serial类
@@ -34,9 +39,9 @@ int main(int argc, char** argv)
     serial::Serial ser2;
     serial::Serial ser3;
     //设置串口属性，并打开串口
-    ser1.setPort("/dev/ttyUSB1");
-    ser2.setPort("/dev/ttyUSB2");
-    ser3.setPort("/dev/ttyUSB3");
+    ser1.setPort("/dev/ultra1");
+    ser2.setPort("/dev/ultra2");
+    ser3.setPort("/dev/ultra3");
     //设置串口通讯波特率
     ser1.setBaudrate(115200);
     ser2.setBaudrate(115200);
@@ -66,52 +71,55 @@ int main(int argc, char** argv)
     else return -1;
     //指定循环的频率
     ros::Rate loop_rate(50);
-    yzmr9_msgs::Ultrasound_result msgs;
     while(ros::ok())
     {   
-        size_t n1 = ser1.available();
-        size_t n2 = ser2.available();
-        size_t n3 = ser3.available();
-        if(n1)
+        try
         {
-            n1 = ser1.read(read_data_1, n1);
-            if(((read_data_1[0] + read_data_1[1] + read_data_1[2]) & 0x00FF) == read_data_1[3])
+            size_t n1 = ser1.available();
+            size_t n2 = ser2.available();
+            size_t n3 = ser3.available();
+            if (n1)
             {
-                int high1 = read_data_1[1];
-                int low1 = read_data_1[2];
-                int distance1 = (high1 << 8) + low1;
-                if(distance1 < 400) ROS_WARN("\033[31m超声1距离: %d\033[0m", distance1);
-                else ROS_INFO_STREAM("超声1距离: " << distance1);
+                n1 = ser1.read(read_data_1, n1);
+                if (((read_data_1[0] + read_data_1[1] + read_data_1[2]) & 0x00FF) == read_data_1[3])
+                {
+                    int high1 = read_data_1[1];
+                    int low1 = read_data_1[2];
+                    int distance1 = (high1 << 8) + low1;
+                    if (distance1 < 400) ROS_WARN("\033[31m超声1距离: %d\033[0m", distance1);
+                    else ROS_INFO_STREAM("超声1距离: " << distance1);
+                }
             }
+            if (n2)
+            {
+                n2 = ser2.read(read_data_2, n2);
+                if (((read_data_2[0] + read_data_2[1] + read_data_2[2]) & 0x00FF) == read_data_2[3])
+                {
+                    int high2 = read_data_2[1];
+                    int low2 = read_data_2[2];
+                    int distance2 = (high2 << 8) + low2;
+                    if (distance2 < 400) ROS_WARN("\033[31m超声2距离: %d\033[0m", distance2);
+                    else ROS_INFO_STREAM("超声2距离: " << distance2);
+                }
+            }
+            if (n3)
+            {
+                n3 = ser3.read(read_data_3, n3);
+                if (((read_data_3[0] + read_data_3[1] + read_data_3[2]) & 0x00FF) == read_data_3[3])
+                {
+                    int high3 = read_data_3[1];
+                    int low3 = read_data_3[2];
+                    int distance3 = (high3 << 8) + low3;
+                    if (distance3 < 400) ROS_WARN("\033[31m超声3距离: %d\033[0m", distance3);
+                    else ROS_INFO_STREAM("超声3距离: " << distance3);
+                }
+            }
+            //判断目前是前进还是后退，如果前进时ultra1或者ultra2距离小于40或后退时ultra3小于,下发速度0
         }
-        if(n2)
+        catch(const std::exception& e)
         {
-            n2 = ser2.read(read_data_2, n2);
-            if(((read_data_2[0] + read_data_2[1] + read_data_2[2]) & 0x00FF) == read_data_2[3])
-            {
-                int high = read_data_2[1];
-                int low = read_data_2[2];
-                int distance = (high << 8) + low;
-                if(distance < 400) ROS_WARN("\033[31m超声2距离: %d\033[0m", distance);
-                else ROS_INFO_STREAM("超声2距离: " << distance);
-            }
+            ROS_WARN_STREAM("超声串口错误:" << e.what());
         }
-        if(n3)
-        {
-            n3 = ser3.read(read_data_3, n3);
-            if(((read_data_3[0] + read_data_3[1] + read_data_3[2]) & 0x00FF) == read_data_3[3])
-            {
-                int high = read_data_3[1];
-                int low = read_data_3[2];
-                int distance = (high << 8) + low;
-                if(distance < 400) ROS_WARN("\033[31m超声3距离: %d\033[0m", distance);
-                else ROS_INFO_STREAM("超声3距离: " << distance);
-            }
-        }
-        //清理串口存储空间
-        ser1.flush();
-        ser2.flush();
-        ser3.flush();
         loop_rate.sleep();
     }
     ser1.close();
