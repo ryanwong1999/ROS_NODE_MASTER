@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="yzmr9_stm32_connect" type="yzmr9_stm32_connect" name="yzmr9_stm32_connect" />
+</launch>
