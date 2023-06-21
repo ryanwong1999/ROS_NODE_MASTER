@@ -19,6 +19,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/Joy.h>
+#include "sensor_msgs/Imu.h"
 #include <math.h>
 #include "move_base_msgs/MoveBaseGoal.h"
 #include <sensor_msgs/Range.h>
@@ -58,6 +59,8 @@ class MDRV
       void Autocharge_Callback(const yzmr9_msgs::Autocharge_result& auto_result);
       void StopSwitch_Callback(const yzmr9_msgs::Emergency_Switch& stop_flag);
       void GetPms_Callback(const yzmr9_msgs::PMS_get_status& pms);
+      void GetIMU_Callback(const sensor_msgs::Imu& imu_msg);
+      void GetJoy_Callback(const sensor_msgs::Joy& joy_msg);
       void pub_cmd_Vel(int16_t real_lear, int16_t real_angle, int16_t a_pos, int16_t b_pos); 
    public:
       ros::Time last_time;
@@ -65,6 +68,7 @@ class MDRV
       tf::TransformBroadcaster odom_broadcaster;
       ros::Publisher odom_pub;
       uint8_t moto_en;
+      bool moveFlag = false;
       int stop_switch;
       int charge_flag;
       int autoChargeTaskFlag;

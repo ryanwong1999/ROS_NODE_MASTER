@@ -765,7 +765,7 @@ int8_t RobotSerial::GetAutoSpeed()
         Emergency_pub.publish(emerg_msg); 
 
         autocharge_msg.linear = (linear/1000)*0.7;
-        autocharge_msg.angular = (angular/1000)*0.5;
+        autocharge_msg.angular = (angular/1000)*0.7;
 
         autocharge_msg.task_flag = autoChargeTaskFlag;
         autocharge_pub.publish(autocharge_msg);

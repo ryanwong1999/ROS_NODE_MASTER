@@ -63,6 +63,36 @@ void aaa(const tf2_msgs::TFMessage &msg)
   }
 }
 
+// use imu to rectify odom angle (hang 20220917)
+geometry_msgs::Quaternion imu_quat;
+float imu_x, imu_y, imu_z, imu_w , imu_yaw, dt_yaw;
+void MDRV::GetIMU_Callback(const sensor_msgs::Imu &imu_msg)
+{ 
+  tf::Quaternion quat;
+  tf::quaternionMsgToTF(imu_msg.orientation, quat);
+  double roll, pitch, yaw;
+  tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
+  dt_yaw = (yaw - imu_yaw)*1.25;
+  
+  if(abs(dt_yaw)>0.3) dt_yaw=0;
+  imu_yaw = yaw;
+  // ROS_WARN("dt_yaw = %f, imu_yaw = %f", dt_yaw, imu_yaw);
+
+  if(abs(imu_msg.angular_velocity.z)<0.1)
+  {
+    // imu_x = imu_msg.orientation.x;
+    // imu_y = imu_msg.orientation.y;
+    // imu_z = imu_msg.orientation.z;
+    // imu_w = imu_msg.orientation.w;
+    imu_yaw = yaw;
+  }
+  else
+  {
+    imu_yaw += imu_msg.angular_velocity.z/5;
+  }
+  imu_quat = tf::createQuaternionMsgFromYaw(imu_yaw);
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "yzbot_motodrv");
@@ -86,7 +116,11 @@ int main(int argc, char **argv)
   // 订阅急停按键
   ros::Subscriber stop_switch = n.subscribe("Emergency_Switch", 1, &MDRV::StopSwitch_Callback, mMDRV); 
   // 订阅机器人电量
-  ros::Subscriber sub_pms_status = n.subscribe("PMS_get_status", 1,  &MDRV::GetPms_Callback, mMDRV);
+  ros::Subscriber sub_pms_status = n.subscribe("PMS_get_status", 1, &MDRV::GetPms_Callback, mMDRV);
+  // 订阅IMU
+  ros::Subscriber sub_imu = n.subscribe("imu", 20, &MDRV::GetIMU_Callback, mMDRV);
+  // 订阅遥控
+  ros::Subscriber sub_joy = n.subscribe("joy", 1, &MDRV::GetJoy_Callback, mMDRV);
   // 订阅tf
   ros::Subscriber tfa = n.subscribe("tf", 1, aaa);
   // 发布自动充电话题
@@ -129,7 +163,6 @@ MDRV::MDRV(ros::NodeHandle & n, MotoSerial *pMotoSerial)
 
 MDRV::~MDRV()
 {
-  mMotoSerial->SetMotoEnable(0, 0, moto_en);
 }
 
 void MDRV::moto_Timer_deal_autoCharge(void)
@@ -145,10 +178,15 @@ void MDRV::moto_Timer_deal_autoCharge(void)
   else
   {
     //进入自动对接充电桩任务
-    if(autoChargeTaskFlag == 1)
+    if(autoChargeTaskFlag == 1 && charge_flag == 0)
     {
       set_vx = auto_vx;
       set_vth = auto_vth;
+    }
+    if((autoChargeTaskFlag == 0 || charge_flag == 1) && !moveFlag)
+    {
+      set_vx = 0.0;
+      set_vth = 0.0;
     }
   }
 }
@@ -157,6 +195,26 @@ void MDRV::GetPms_Callback(const yzmr9_msgs::PMS_get_status& pms)
 {
   charge_flag = pms.pms_charging_flag;
 //   ROS_INFO("charge_flag: %d", charge_flag);
+}
+
+void MDRV::GetJoy_Callback(const sensor_msgs::Joy& joy_msg)
+{
+  if((joy_msg.buttons[0] == 0 
+  && joy_msg.buttons[1] == 0 
+  && joy_msg.buttons[2] == 0 
+  && joy_msg.buttons[3] == 0 
+  && joy_msg.buttons[4] == 1 
+  && joy_msg.buttons[5] == 0 
+  && joy_msg.buttons[6] == 0 
+  && joy_msg.buttons[7] == 0 
+  && joy_msg.buttons[8] == 0 
+  && joy_msg.buttons[9] == 0 
+  && joy_msg.buttons[10] == 0) 
+  && (joy_msg.axes[3] != 0 || joy_msg.axes[0] != 0))
+  {
+    moveFlag = true;
+  }
+  else moveFlag = false;
 }
 
 void MDRV::StopSwitch_Callback(const yzmr9_msgs::Emergency_Switch& stop_flag)
@@ -173,8 +231,6 @@ void MDRV::Autocharge_Callback(const yzmr9_msgs::Autocharge_result& auto_result)
   // ROS_INFO("auto_vx: %f, auto_vth: %f", auto_vx, auto_vth);
 }
 
-int cnt = 0;
-int reset_cnt = 0;
 void MDRV::cmd_Vel_Callback(const geometry_msgs::Twist& cmd_vel)
 {
   //急停按键按下
@@ -189,18 +245,10 @@ void MDRV::cmd_Vel_Callback(const geometry_msgs::Twist& cmd_vel)
     //进入自动对接充电桩任务
     if(autoChargeTaskFlag == 1)
     {
-      cnt++;
-      if(cnt >= 6)
+      if(moveFlag)
       {
         charge_msg.auto_charging_flag = 0;
         pub_auto_charge.publish(charge_msg);
-        cnt = 0;
-        reset_cnt = 0;
-      }
-      else
-      {
-        reset_cnt++;
-        if(reset_cnt >= 10) cnt = 0;
       }
     }
     else
@@ -261,7 +309,7 @@ void MDRV::pub_cmd_Vel(int16_t real_lear, int16_t real_angle, int16_t a_pos, int
   // double PRE_RATE = PI/180;
   ros::Time current_time = ros::Time::now();
   double dt = (current_time - last_time).toSec();
-  cur_radian = (right_pulse - left_pulse) * PULSE_Sec/WHEEL_DISTANCE ;   // rad
+  cur_radian = (right_pulse - left_pulse) * PULSE_Sec/WHEEL_DISTANCE;   // rad
   double vth = cur_radian/dt;     // rad/s 
   double th_dt_h = cur_radian;
 
@@ -276,10 +324,13 @@ void MDRV::pub_cmd_Vel(int16_t real_lear, int16_t real_angle, int16_t a_pos, int
   if(totle_radian > PI) totle_radian -= 2*PI; 
   else if(totle_radian <= -PI) totle_radian += 2*PI;
 
-  double dt_x = ((left_pulse + right_pulse) * PULSE_Sec * cos(totle_radian - th_dt_h + th_dt_h/2.0))/2.0;
-  double dt_y = ((left_pulse + right_pulse) * PULSE_Sec * sin(totle_radian - th_dt_h + th_dt_h/2.0))/2.0;
+  // double dt_x = ((left_pulse + right_pulse) * PULSE_Sec * cos(totle_radian - th_dt_h + th_dt_h/2.0))/2.0;
+  // double dt_y = ((left_pulse + right_pulse) * PULSE_Sec * sin(totle_radian - th_dt_h + th_dt_h/2.0))/2.0;
+  double dt_x = ((left_pulse + right_pulse) * PULSE_Sec * cos(imu_yaw - th_dt_h + th_dt_h/2.0))/2.0;
+  double dt_y = ((left_pulse + right_pulse) * PULSE_Sec * sin(imu_yaw - th_dt_h + th_dt_h/2.0))/2.0;
   // 通过角度 排除x y 正负问题
-  double my_angle = totle_radian*(180/3.1415926);
+  // double my_angle = totle_radian*(180/3.1415926);
+  double my_angle = imu_yaw*(180/3.1415926);
   
   // ROS_INFO("dxy: %.2f, %.2f", dt_x, dt_y);
   int left_t = left_pulse;
@@ -335,44 +386,41 @@ void MDRV::pub_cmd_Vel(int16_t real_lear, int16_t real_angle, int16_t a_pos, int
   g_y += dt_y;
   // ROS_INFO("dxy: %.2f, %.2f", dt_x, dt_y);
   // per_angle = angle;
-  geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(totle_radian);
-
+  // geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(totle_radian);
   // printf("*:gx=%f, gy=%f, gyaw=%f\n", g_x, g_y, th_total_h / PRE_RATE);
   geometry_msgs::TransformStamped odom_trans;
   odom_trans.header.stamp = current_time;
   odom_trans.header.frame_id = "odom";
   odom_trans.child_frame_id = "base_link";
-
   odom_trans.transform.translation.x = g_x;
   odom_trans.transform.translation.y = g_y;
   odom_trans.transform.translation.z = 0;
-  odom_trans.transform.rotation = odom_quat;
+  odom_trans.transform.rotation = imu_quat;
+  // odom_trans.transform.rotation = odom_quat;
   // send transform
   odom_broadcaster.sendTransform(odom_trans);
-  // publish the odometry message over Ros
-  nav_msgs::Odometry odom;
-  odom.header.stamp = current_time;
-  odom.header.frame_id = "odom";
-  odom.pose.pose.position.x = g_x;
-  odom.pose.pose.position.y = g_y;
-  odom.pose.pose.position.z = 0;
-  odom.pose.pose.orientation = odom_quat;
-  // set velocity
-  odom.child_frame_id = "base_link";
-  odom.twist.twist.linear.x = (double)real_lear/1000;
-  // odom.twist.twist.linear.x = (left_pulse + right_pulse) * PULSE_Sec/dt/2.0 ;//vx;
-  odom.twist.twist.linear.y = 0;
-  // odom.twist.twist.angular.z = vth;
-  odom.twist.twist.angular.z = (double)real_angle/1000;
-  // ROS_INFO("-----real_learv: %d, real_angle: %d, linear.x: %f, angular.z: %f", real_lear, real_angle, odom.twist.twist.linear.x, odom.twist.twist.angular.z);
-  // ROS_INFO("----- %d, %d, %f, %f", real_lear, real_angle, odom.twist.twist.linear.x, odom.twist.twist.angular.z);
-
-  // if(vth > -10 && vth < 10)
-  // {
-  odom_pub.publish(odom);
-  // }
-
-  last_time = current_time;
+  // // publish the odometry message over Ros
+  // nav_msgs::Odometry odom;
+  // odom.header.stamp = current_time;
+  // odom.header.frame_id = "odom";
+  // odom.pose.pose.position.x = g_x;
+  // odom.pose.pose.position.y = g_y;
+  // odom.pose.pose.position.z = 0;
+  // odom.pose.pose.orientation = odom_quat;
+  // // set velocity
+  // odom.child_frame_id = "base_link";
+  // odom.twist.twist.linear.x = (double)real_lear/1000;
+  // // odom.twist.twist.linear.x = (left_pulse + right_pulse) * PULSE_Sec/dt/2.0 ;//vx;
+  // odom.twist.twist.linear.y = 0;
+  // // odom.twist.twist.angular.z = vth;
+  // odom.twist.twist.angular.z = (double)real_angle/1000;
+  // // ROS_INFO("-----real_learv: %d, real_angle: %d, linear.x: %f, angular.z: %f", real_lear, real_angle, odom.twist.twist.linear.x, odom.twist.twist.angular.z);
+  // // ROS_INFO("----- %d, %d, %f, %f", real_lear, real_angle, odom.twist.twist.linear.x, odom.twist.twist.angular.z);
+  // // if(vth > -10 && vth < 10)
+  // // {
+  // odom_pub.publish(odom);
+  // // }
+  // last_time = current_time;
 }
 
 int move_cnt = 0;
@@ -381,16 +429,16 @@ void MDRV::moto_Timer_deal_odom(void)
   int16_t tx_lear, tx_angle;
   int16_t rx_lear, rx_angle;
   int16_t left_pos, right_pos;
-  // set_vx = 0.4;
-  // set_vth = 0.2;
+
   if(set_vx > 0.8) set_vx = 0.8;
-  if(set_vx < -0.7) set_vx = -0.7;  
-  if(set_vth > 0.5) set_vx = 0.5;
-  if(set_vth < -0.5) set_vx = -0.5;
+  if(set_vx < -0.5) set_vx = -0.5;
+  if(set_vth > 1.0) set_vth = 1.0;
+  if(set_vth < -1.0) set_vth = -1.0;
 
   tx_lear = set_vx*1000;
   tx_angle = set_vth*1000;
   // ROS_INFO("moto_en: %d", moto_en);
+  ROS_INFO("set_vx: %f, set_vth: %f", set_vx, set_vth);
   if((tx_lear!= 0 || tx_angle!=0) || stop_switch == 1 || charge_flag == 1)
   {
     if(moto_en != 1)
@@ -403,12 +451,13 @@ void MDRV::moto_Timer_deal_odom(void)
     if(moto_en != 0)
     {
       move_cnt++;
-      if(move_cnt > 20)
+      if(move_cnt > 30)
       {
         // mMotoSerial->SetMotoEnable(1, 1, moto_en);    //不可推动
         mMotoSerial->SetMotoEnable(0, 0, moto_en);    //可推动
         move_cnt = 0;
       }
+      // mMotoSerial->SetMotoEnable(1, 1, moto_en);    //不可推动
     }
   }
   mMotoSerial->SetMotoSpeed(tx_lear, tx_angle, rx_lear, rx_angle);
@@ -590,6 +639,7 @@ int8_t MotoSerial::SetMotoSpeed(int16_t set_lear, int16_t set_angle, int16_t &re
 
 int8_t MotoSerial::GetMotoOdom(int16_t &a_dir, int16_t &b_dir)
 {
+  // ROS_INFO("GetMotoOdom");
   uint8_t SendBUF[MAX_RX_LEN];
   uint8_t buf_cnt;
   unsigned short crc;
@@ -623,7 +673,7 @@ int8_t MotoSerial::GetMotoOdom(int16_t &a_dir, int16_t &b_dir)
     {
       a_dir = RecvBUF[6]<<8 | RecvBUF[7];
       b_dir = RecvBUF[8]<<8 | RecvBUF[9];
-      // ROS_INFO("moto dir: %d, %d", b_dir, a_dir);
+      // ROS_INFO("moto dir====== a_dir:%d, b_dir:%d", a_dir, b_dir);
       return 0;
     }
   }

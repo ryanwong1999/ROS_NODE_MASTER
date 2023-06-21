@@ -1,6 +1,4 @@
 #include <sstream>
-
-
 #include <string>
 #include <iostream>
 #include <cstdio>
@@ -40,9 +38,9 @@ geometry_msgs::Quaternion imu_quat;
 float imu_x, imu_y, imu_z, imu_w , imu_yaw, dt_yaw;
 void get_imu_call_back(const sensor_msgs::Imu &imu_msg)
 { 
-  tf::Quaternion  quat;
+  tf::Quaternion quat;
   tf::quaternionMsgToTF(imu_msg.orientation, quat);
-  double roll,pitch,yaw;
+  double roll, pitch, yaw;
   tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
   dt_yaw = (yaw - imu_yaw)*1.25;
   
@@ -113,11 +111,11 @@ PLC::PLC(ros::NodeHandle & n, RobotSerial *pRobotserial)
   my_robot_pose.robot_y = 0;
   my_robot_pose.robot_yaw = 0;
   mRobotSerial = pRobotserial ;
-  odom_pub = n.advertise<nav_msgs::Odometry>("odom_stm32",50);
-  sub_fmq = n.subscribe("Fmq_set",5,get_fmq_call_back);
+  odom_pub = n.advertise<nav_msgs::Odometry>("odom_stm32", 50);
+  sub_fmq = n.subscribe("Fmq_set", 5, get_fmq_call_back);
   
-  sub_imu = n.subscribe("imu",20,get_imu_call_back);
-  pub_robot_pose = n.advertise<yzmr9_msgs::Robot_pose>("Robot_pose",1);
+  sub_imu = n.subscribe("imu", 20, get_imu_call_back);
+  pub_robot_pose = n.advertise<yzmr9_msgs::Robot_pose>("Robot_pose", 1);
 }
 
 PLC::~PLC()
@@ -232,7 +230,7 @@ void PLC::pub_robot_pose_fanction(int left_t, int right_t, double angle_t, doubl
 /**
   发布odom话题
 **/ 
-int PLC::pub_odom(short int vx, short int  vy, short int  t1, short int  t2, float angle_v, float angle, float n_vx, float n_vth)
+int PLC::pub_odom(short int vx, short int vy, short int t1, short int t2, float angle_v, float angle, float n_vx, float n_vth)
 {
   static int tmp_t1 = 0;
   static int tmp_t2 = 0;
