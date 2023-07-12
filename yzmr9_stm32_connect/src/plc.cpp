@@ -415,6 +415,13 @@ void PLC::Ultrasound_Callback(const yzmr9_msgs::Ultrasound& ultra)
 
 }
 
+void PLC::Carlight_Callback(const yzmr9_msgs::CarLight_Cmd& light)
+{
+  int carLight_Cmd = light.cmd_carlight;
+  int turnLight_Cmd = light.cmd_turnlight;
+  mRobotSerial->SetSensorEn(carLight_Cmd, turnLight_Cmd);
+}
+
 /**
   订阅速度话题
 **/

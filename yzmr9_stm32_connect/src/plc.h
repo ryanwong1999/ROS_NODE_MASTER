@@ -25,6 +25,7 @@
 #include "yzmr9_msgs/PSC_get_neck_status.h"
 #include "yzmr9_msgs/Ultrasound.h"
 #include "sensor_msgs/LaserScan.h"
+#include "yzmr9_msgs/CarLight_Cmd.h"
 
 #include <costmap_2d/costmap_2d.h>
 #include <costmap_2d/costmap_2d_publisher.h>
@@ -52,7 +53,8 @@ class PLC
     void plc_Timer_deal_odom(bool SpeedAbnormalSwitch);
     void get_auto_speed();
     // 监听joystick回调callback 
-    void Ultrasound_Callback(const yzmr9_msgs::Ultrasound& ultra);  
+    void Ultrasound_Callback(const yzmr9_msgs::Ultrasound& ultra); 
+    void Carlight_Callback(const yzmr9_msgs::CarLight_Cmd& light);
     void cmd_Vel_Callback(const geometry_msgs::Twist& cmd_vel);  
     void cmd_pwm_Vel_Callback(const geometry_msgs::Twist& cmd_vel);
     void amcl_pose_call_back(const geometry_msgs::PoseWithCovarianceStamped amcl_pose);

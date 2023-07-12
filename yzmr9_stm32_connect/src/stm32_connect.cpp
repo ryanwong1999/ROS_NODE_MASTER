@@ -50,14 +50,14 @@ void Timer_Deal(void)
   {
     mPSC->Query_Robot_Button();//查询按钮状态
   }
-  if(flag == 17)
-  {
-    mPSC->Query_TempHum_State();//查询环境数据
-  }
-  if(flag == 19)
-  {
-    mPSC->Query_PM_State();//查询环境数据
-  }
+  // if(flag == 17)
+  // {
+  //   mPSC->Query_TempHum_State();//查询环境数据
+  // }
+  // if(flag == 19)
+  // {
+  //   mPSC->Query_PM_State();//查询环境数据
+  // }
   if(flag == 7)
   {
     
@@ -160,6 +160,8 @@ int main(int argc, char ** argv)
   ros::Subscriber psc_height_neck_control = n.subscribe("PSC_height_neck_control", 1, &PSC::Neck_Control_By_Height, mPSC);  
   //订阅超声
   ros::Subscriber sub_ultra = n.subscribe("Ultrasound", 1, &PLC::Ultrasound_Callback, mPLC); 
+
+  ros::Subscriber sub_carlight_cmd = n.subscribe("CarLight_Cmd", 1, &PLC::Carlight_Callback, mPLC); 
   //mRobotSerial->SetPid();
   ros::spin();
   return 0;

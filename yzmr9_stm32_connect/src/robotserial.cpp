@@ -778,6 +778,59 @@ int8_t RobotSerial::GetAutoSpeed()
   return 0;
 }
 
+int8_t RobotSerial::SetSensorEn(int carLight, int turnLight)
+{
+  ROS_INFO("SetSensorEn: %d", carLight);
+  uint8_t SendBUF[MAX_RX_LEN];
+  memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
+  memset(RecvBUF, 0, MAX_RX_LEN);
+  SendBUF[0] = 0x55;
+  SendBUF[1] = 0xAA;
+  SendBUF[2] = index;
+  SendBUF[3] = 0x13;  // 长度
+  SendBUF[4] = 0xFF;  // 源地址
+  SendBUF[5] = 0x01;  // 目的地址
+  SendBUF[6] = 0x77;  // 命令
+  SendBUF[7] = 0x08;
+  SendBUF[11] = carLight;
+  SendBUF[12] = turnLight;
+  memset(SendBUF+13, 0, 8);
+  SendBUF[16] = CRC8_Table(SendBUF, 16);
+  SendBUF[17] = 0x0D;
+  SendBUF[18] = 0x0A;
+  mSerial->write(SendBUF, 19);
+  Time_Count = 0;
+
+  while(1)
+  {
+    if(Time_Count == TIME_OUT) return 1;
+    
+    int8_t tmp = RobotSerialRead();
+    /*printf("$$$$$$$$$$$$$  %d", tmp);
+    for(int i = 0; i < 19; i ++)
+    {
+      printf("* %x ", RecvBUF[i]);
+    }*/
+    if(!(tmp<0))
+    {
+      if(tmp)
+      {
+        ROS_INFO("error");
+        return 1;   // error
+      }
+      else
+      {
+        // 解析数据
+        int carLight_result = RecvBUF[9];
+        int turnLight_result = RecvBUF[10];
+        // ROS_INFO("@@@ linear:%.2f  angular:%.2f  autoChargeTaskFlag:%d", autocharge_msg.linear, autocharge_msg.angular, autoChargeTaskFlag);
+        return 0;
+      }
+    }
+  }
+  return 0;
+}
+
 int8_t RobotSerial::get_robot_button(int &audio_button, int &power_button, int &zs)
 {
   //获取按钮开关状态和噪声分贝值
@@ -962,187 +1015,188 @@ int8_t RobotSerial::GetHeadPose(int &Level, int &Vertical, int &switch_flag)
 }
 
 /***查询温度　湿度　ＣＯ２　ＶＯＣ****/
-int8_t RobotSerial::GetTempHum(float &Co2, float &Voc, float &Temp, float &Hum)                       
-{
-  uint8_t SendBUF[MAX_RX_LEN];
-  memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
-  memset(RecvBUF, 0, MAX_RX_LEN);
-  SendBUF[0] = 0x55;
-  SendBUF[1] = 0xAA;
-  SendBUF[2] = index;
-  SendBUF[3] = 0x13;  // 长度
-  SendBUF[4] = 0xFF;  // 源地址
-  SendBUF[5] = 0x01;  // 目的地址
-  SendBUF[6] = 0x62;  // 命令
-  SendBUF[7] = 0x08;
-  memset(SendBUF+8,0,8);
-  SendBUF[16] = CRC8_Table(SendBUF, 16);
-  SendBUF[17] = 0x0D;
-  SendBUF[18] = 0x0A;
-  mSerial->write(SendBUF, 19);
-  Time_Count = 0;
+// int8_t RobotSerial::GetTempHum(float &Co2, float &Voc, float &Temp, float &Hum)                       
+// {
+//   uint8_t SendBUF[MAX_RX_LEN];
+//   memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
+//   memset(RecvBUF, 0, MAX_RX_LEN);
+//   SendBUF[0] = 0x55;
+//   SendBUF[1] = 0xAA;
+//   SendBUF[2] = index;
+//   SendBUF[3] = 0x13;  // 长度
+//   SendBUF[4] = 0xFF;  // 源地址
+//   SendBUF[5] = 0x01;  // 目的地址
+//   SendBUF[6] = 0x62;  // 命令
+//   SendBUF[7] = 0x08;
+//   memset(SendBUF+8,0,8);
+//   SendBUF[16] = CRC8_Table(SendBUF, 16);
+//   SendBUF[17] = 0x0D;
+//   SendBUF[18] = 0x0A;
+//   mSerial->write(SendBUF, 19);
+//   Time_Count = 0;
   
-  while(1)
-  {
-    if(Time_Count == TIME_OUT) return 1;
+//   while(1)
+//   {
+//     if(Time_Count == TIME_OUT) return 1;
     
-    int8_t tmp = RobotSerialRead();   // 读数据
-    if(!(tmp<0))   // tmp= -1 // 未收到任何无线数据
-    {
-      if(tmp)  
-      {
-        // 调试打印,需要时打开此宏定义
-        #ifdef OPEN_PRINTF_DEBUG
-        // cout << "Read error!" << endl;
-        #endif 
-        return 1;  // 失败
-        break;
-      }
-      else
-      {   // 返回0,表示接收到有效数据
-        // 
-        #ifdef OPEN_PRINTF_DEBUG
-        // cout << "Temp&Hum Data Read sucessful!" << endl;
-        #endif
-        // 解析数据
-        unsigned char recvFrameIndex = 0;
-        unsigned char length;
-        unsigned char s_devid;
-        unsigned char p_devid;
-        unsigned char cmd;
-        short int mTemp = 0;
-        short int mHum = 0;
-        short int mCo2 = 0;
-        short int mVoc = 0;
-        int gongneng = RecvBUF[6];
-        if(gongneng != 0x62)
-        {
-          return -1;
-        }
-        memcpy(&mCo2,&RecvBUF[8], sizeof(int16_t));
-        memcpy(&mVoc,&RecvBUF[10], sizeof(int16_t));
-        mCo2 = ntohs(mCo2);
-        mVoc = ntohs(mVoc);
-        memcpy(&mTemp,&RecvBUF[14], sizeof(int16_t));
-        memcpy(&mHum,&RecvBUF[12], sizeof(int16_t));
-        mTemp = ntohs(mTemp);
-        mHum = ntohs(mHum);
-        // #ifdef OPEN_PRINTF_DEBUG
-        //  printf("mTemp=0x%02X,mHum=0x%02X\r\n",mTemp,mHum);
-        //  printf("温度=%.2lf,湿度=%.2lf\r\n",mTemp/100.0,mHum/100.0);
-        // #endif 
-        Co2 = (float)mCo2;
-        Voc = (float)mVoc/100; 
-        Temp = (float)mTemp/10;
-        Hum = (float)mHum/10;
-        // ROS_INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!C)@ %.2f %.2f %.2f %.2f",Co2, Voc, Temp, Hum);
-        // ROS_INFO("################### %x %x %x %x", RecvBUF[8], RecvBUF[9], RecvBUF[10], RecvBUF[11]);
-        /*if(Temp > -0.001 && Temp < 0.001)
-        {
-          for(int t = 0; t < 19; t ++)
-          {
-            printf("tem  %x",RecvBUF[t]);
-          }
-        }*/
+//     int8_t tmp = RobotSerialRead();   // 读数据
+//     if(!(tmp<0))   // tmp= -1 // 未收到任何无线数据
+//     {
+//       if(tmp)  
+//       {
+//         // 调试打印,需要时打开此宏定义
+//         #ifdef OPEN_PRINTF_DEBUG
+//         // cout << "Read error!" << endl;
+//         #endif 
+//         return 1;  // 失败
+//         break;
+//       }
+//       else
+//       {   // 返回0,表示接收到有效数据
+//         // 
+//         #ifdef OPEN_PRINTF_DEBUG
+//         // cout << "Temp&Hum Data Read sucessful!" << endl;
+//         #endif
+//         // 解析数据
+//         unsigned char recvFrameIndex = 0;
+//         unsigned char length;
+//         unsigned char s_devid;
+//         unsigned char p_devid;
+//         unsigned char cmd;
+//         short int mTemp = 0;
+//         short int mHum = 0;
+//         short int mCo2 = 0;
+//         short int mVoc = 0;
+//         int gongneng = RecvBUF[6];
+//         if(gongneng != 0x62)
+//         {
+//           return -1;
+//         }
+//         memcpy(&mCo2,&RecvBUF[8], sizeof(int16_t));
+//         memcpy(&mVoc,&RecvBUF[10], sizeof(int16_t));
+//         mCo2 = ntohs(mCo2);
+//         mVoc = ntohs(mVoc);
+//         memcpy(&mTemp,&RecvBUF[14], sizeof(int16_t));
+//         memcpy(&mHum,&RecvBUF[12], sizeof(int16_t));
+//         mTemp = ntohs(mTemp);
+//         mHum = ntohs(mHum);
+//         // #ifdef OPEN_PRINTF_DEBUG
+//         //  printf("mTemp=0x%02X,mHum=0x%02X\r\n",mTemp,mHum);
+//         //  printf("温度=%.2lf,湿度=%.2lf\r\n",mTemp/100.0,mHum/100.0);
+//         // #endif 
+//         Co2 = (float)mCo2;
+//         Voc = (float)mVoc/100; 
+//         Temp = (float)mTemp/10;
+//         Hum = (float)mHum/10;
+//         // ROS_INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!C)@ %.2f %.2f %.2f %.2f",Co2, Voc, Temp, Hum);
+//         // ROS_INFO("################### %x %x %x %x", RecvBUF[8], RecvBUF[9], RecvBUF[10], RecvBUF[11]);
+//         /*if(Temp > -0.001 && Temp < 0.001)
+//         {
+//           for(int t = 0; t < 19; t ++)
+//           {
+//             printf("tem  %x",RecvBUF[t]);
+//           }
+//         }*/
 
-        #ifdef OPEN_PRINTF_DEBUG
-        // printf("Temp=%.2lf, Hum=%.2lf\r\n", Temp, Hum);
-        #endif  
-        return 0;
-      }
-    }
-  }
-}
+//         #ifdef OPEN_PRINTF_DEBUG
+//         // printf("Temp=%.2lf, Hum=%.2lf\r\n", Temp, Hum);
+//         #endif  
+//         return 0;
+//       }
+//     }
+//   }
+// }
 
-int8_t RobotSerial::GetPM(float &Pm25, float &Pm10, float &Pm1_0, float &Stata)
-{
-  uint8_t SendBUF[MAX_RX_LEN];
-  memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
-  memset(RecvBUF, 0, MAX_RX_LEN);
-  SendBUF[0] = 0x55;
-  SendBUF[1] = 0xAA;
-  SendBUF[2] = index;
-  SendBUF[3] = 0x13;  // 长度
-  SendBUF[4] = 0xFF;  // 源地址
-  SendBUF[5] = 0x01;  // 目的地址
-  SendBUF[6] = 0x63;  // 命令
-  SendBUF[7] = 0x08;
-  memset(SendBUF+8, 0, 8);
-  SendBUF[16] = CRC8_Table(SendBUF, 16);
-  SendBUF[17] = 0x0D;
-  SendBUF[18] = 0x0A;
-  mSerial->write(SendBUF, 19);
-  Time_Count = 0;
+// int8_t RobotSerial::GetPM(float &Pm25, float &Pm10, float &Pm1_0, float &Stata)
+// {
+//   uint8_t SendBUF[MAX_RX_LEN];
+//   memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
+//   memset(RecvBUF, 0, MAX_RX_LEN);
+//   SendBUF[0] = 0x55;
+//   SendBUF[1] = 0xAA;
+//   SendBUF[2] = index;
+//   SendBUF[3] = 0x13;  // 长度
+//   SendBUF[4] = 0xFF;  // 源地址
+//   SendBUF[5] = 0x01;  // 目的地址
+//   SendBUF[6] = 0x63;  // 命令
+//   SendBUF[7] = 0x08;
+//   memset(SendBUF+8, 0, 8);
+//   SendBUF[16] = CRC8_Table(SendBUF, 16);
+//   SendBUF[17] = 0x0D;
+//   SendBUF[18] = 0x0A;
+//   mSerial->write(SendBUF, 19);
+//   Time_Count = 0;
 
-  while(1)
-  {
-    if(Time_Count == TIME_OUT) return 1;
+//   while(1)
+//   {
+//     if(Time_Count == TIME_OUT) return 1;
     
-    int8_t tmp = RobotSerialRead();   // 读数据
-    if(!(tmp<0))   // tmp= -1 // 未收到任何无线数据
-    {
-      if(tmp)  
-      {
-        // 调试打印,需要时打开此宏定义
-        #ifdef OPEN_PRINTF_DEBUG
-        // cout << "Read error!" << endl;
-        #endif 
-        return 1;  // 失败
-        break;
-      }
-      else
-      {   
-        // 返回0,表示接收到有效数据
-        #ifdef OPEN_PRINTF_DEBUG
-        // cout << "Temp&Hum Data Read sucessful!" << endl;
-        #endif
-        // 解析数据
-        short int mPm25 = 0;
-        short int mPm10 = 0;
-        short int mPm1_0 = 0;
-        short int mStata = 0;
-        int gongneng = RecvBUF[6];
-        if(gongneng != 0x63)
-        {
-          return -1;
-        }
-        memcpy(&mPm25,&RecvBUF[8], sizeof(int16_t));
-        memcpy(&mPm10,&RecvBUF[10], sizeof(int16_t));
-        mPm25 = ntohs(mPm25);
-        mPm10 = ntohs(mPm10);
-        memcpy(&mPm1_0,&RecvBUF[12], sizeof(int16_t));
-        memcpy(&mStata,&RecvBUF[14], sizeof(int16_t));
-        mPm1_0 = ntohs(mPm1_0);
-        mStata = ntohs(mStata);
-        // #ifdef OPEN_PRINTF_DEBUG
-        //   printf("mTemp=0x%02X, mHum=0x%02X\r\n", mTemp, mHum);
-        //   printf("温度=%.2lf,湿度=%.2lf\r\n", mTemp/100.0, mHum/100.0);
-        // #endif 
-        Pm25 = (float)mPm25;
-        Pm10 = (float)mPm10; 
-        Pm1_0 = (float)mPm1_0;
-        Stata = (float)mStata;
-        /*if(Temp > -0.001 && Temp < 0.001)
-        {
-          for(int t = 0; t < 19; t ++)
-          {
-            printf("tem  %x", RecvBUF[t]);
-          }
-        }*/
-        // ROS_INFO("pm10-------->%.2f %.2f",Pm10,Pm25);
+//     int8_t tmp = RobotSerialRead();   // 读数据
+//     if(!(tmp<0))   // tmp= -1 // 未收到任何无线数据
+//     {
+//       if(tmp)  
+//       {
+//         // 调试打印,需要时打开此宏定义
+//         #ifdef OPEN_PRINTF_DEBUG
+//         // cout << "Read error!" << endl;
+//         #endif 
+//         return 1;  // 失败
+//         break;
+//       }
+//       else
+//       {   
+//         // 返回0,表示接收到有效数据
+//         #ifdef OPEN_PRINTF_DEBUG
+//         // cout << "Temp&Hum Data Read sucessful!" << endl;
+//         #endif
+//         // 解析数据
+//         short int mPm25 = 0;
+//         short int mPm10 = 0;
+//         short int mPm1_0 = 0;
+//         short int mStata = 0;
+//         int gongneng = RecvBUF[6];
+//         if(gongneng != 0x63)
+//         {
+//           return -1;
+//         }
+//         memcpy(&mPm25,&RecvBUF[8], sizeof(int16_t));
+//         memcpy(&mPm10,&RecvBUF[10], sizeof(int16_t));
+//         mPm25 = ntohs(mPm25);
+//         mPm10 = ntohs(mPm10);
+//         memcpy(&mPm1_0,&RecvBUF[12], sizeof(int16_t));
+//         memcpy(&mStata,&RecvBUF[14], sizeof(int16_t));
+//         mPm1_0 = ntohs(mPm1_0);
+//         mStata = ntohs(mStata);
+//         // #ifdef OPEN_PRINTF_DEBUG
+//         //   printf("mTemp=0x%02X, mHum=0x%02X\r\n", mTemp, mHum);
+//         //   printf("温度=%.2lf,湿度=%.2lf\r\n", mTemp/100.0, mHum/100.0);
+//         // #endif 
+//         Pm25 = (float)mPm25;
+//         Pm10 = (float)mPm10; 
+//         Pm1_0 = (float)mPm1_0;
+//         Stata = (float)mStata;
+//         /*if(Temp > -0.001 && Temp < 0.001)
+//         {
+//           for(int t = 0; t < 19; t ++)
+//           {
+//             printf("tem  %x", RecvBUF[t]);
+//           }
+//         }*/
+//         // ROS_INFO("pm10-------->%.2f %.2f",Pm10,Pm25);
 
-        #ifdef OPEN_PRINTF_DEBUG
-          //printf("Temp=%.2lf,Hum=%.2lf\r\n",Temp,Hum);
-        #endif  
-        return 0;
-      }
-    }
-  }
-}
+//         #ifdef OPEN_PRINTF_DEBUG
+//           //printf("Temp=%.2lf,Hum=%.2lf\r\n",Temp,Hum);
+//         #endif  
+//         return 0;
+//       }
+//     }
+//   }
+// }
 
 //-----ultrasound --------------------------------------
 int RobotSerial::get_ultrasound_result(int &cs_obs, int &fz_obs)
 {
+  ROS_INFO("get_ultrasound_result------");
   static int tmp = 0;
   uint8_t SendBUF[MAX_RX_LEN];
   memset(SendBUF, 0, MAX_RX_LEN);    // 初始化
@@ -1202,6 +1256,9 @@ int RobotSerial::get_ultrasound_result(int &cs_obs, int &fz_obs)
         // ROS_INFO("cs %d", cs_obs);
         fz_obs = RecvBUF[9];
         // ROS_INFO("fz %d", fz_obs);
+        double moto_cur = (short)((RecvBUF[11]<<8) + RecvBUF[12]);
+        double bettery_vol = (short)((RecvBUF[14]<<8) + RecvBUF[15]);
+        ROS_INFO("moto_cur %f, bettery_vol %f", moto_cur, bettery_vol);
         return 1;
         break;
       }

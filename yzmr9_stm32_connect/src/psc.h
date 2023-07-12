@@ -27,7 +27,6 @@ struct psc_obs
 {
   int cs;
   int fz;
-
 };
 
 //按钮状态 和 噪声分贝值
@@ -43,7 +42,6 @@ struct psc_status
 {
   int level;
   int pitch;
-
 };
 
 //环境数据
@@ -101,7 +99,7 @@ class PSC
     ros::Publisher PSC_status_pub;
     ros::Publisher Wheel_pub;             //紧急开关的发布 
     ros::Publisher PSC_neck_status_pubs;  //发布升降干状态话题
-    ros::Publisher Envirment_pub;         //发布环境数据
+    //ros::Publisher Envirment_pub;         //发布环境数据
     ros::Publisher obs_pub;               //发布超声防撞
     ros::Publisher robot_button_pub;      //发布按钮状态和噪声分贝
     int psc_key_control_neck_direction;   //这个是键盘控升降干的方向     
@@ -111,8 +109,8 @@ class PSC
     int Query_Level_State(void);
     //查询限位开关的状态
     int Query_Limit_Switch(void);
-    int Query_TempHum_State(void);
-    int Query_PM_State(void);
+    //int Query_TempHum_State(void);
+    //int Query_PM_State(void);
     int Query_Head_Pose(void);
     int Query_OBS_State(void);
     int Query_Robot_Button(void);

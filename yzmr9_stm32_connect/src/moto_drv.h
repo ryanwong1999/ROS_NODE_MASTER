@@ -16,6 +16,8 @@
 #include "yzmr9_msgs/Autocharge_result.h"
 #include "yzmr9_msgs/Emergency_Switch.h"
 #include "yzmr9_msgs/Auto_Charging.h"
+#include "yzmr9_msgs/Ultrasound.h"
+#include "yzmr9_msgs//Ultrasound_result.h"
 #include "sensor_msgs/LaserScan.h"
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/Joy.h>
@@ -61,6 +63,8 @@ class MDRV
       void GetPms_Callback(const yzmr9_msgs::PMS_get_status& pms);
       void GetIMU_Callback(const sensor_msgs::Imu& imu_msg);
       void GetJoy_Callback(const sensor_msgs::Joy& joy_msg);
+      void GetUltra_Callback(const yzmr9_msgs::Ultrasound& ultra);
+      void GetFZ_Callback(const yzmr9_msgs::Ultrasound_result& fz);
       void pub_cmd_Vel(int16_t real_lear, int16_t real_angle, int16_t a_pos, int16_t b_pos); 
    public:
       ros::Time last_time;
@@ -71,6 +75,8 @@ class MDRV
       bool moveFlag = false;
       int stop_switch;
       int charge_flag;
+      int cs1, cs2, cs3;
+      int fz_result;
       int autoChargeTaskFlag;
       // float cur_radian;
       float last_radian;

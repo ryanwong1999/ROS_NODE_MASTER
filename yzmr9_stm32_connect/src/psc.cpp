@@ -52,7 +52,7 @@ PSC::PSC(ros::NodeHandle & n, RobotSerial *pRobotserial)
   PSC_status_pub = n.advertise<yzmr9_msgs::PSC_get_status>("PSC_get_status", 5);
   Wheel_pub = n.advertise<yzmr9_msgs::Wheel_Switch>("Wheel_Switch", 5);
   PSC_neck_status_pubs= n.advertise<yzmr9_msgs::PSC_get_neck_status>("PSC_get_neck_status", 5);
-  Envirment_pub = n.advertise<yzmr9_msgs::Envirment_data>("Envirment_data", 5);
+  //Envirment_pub = n.advertise<yzmr9_msgs::Envirment_data>("Envirment_data", 5);
   obs_pub = n.advertise<yzmr9_msgs::Ultrasound_result>("Ultrasound_result", 5);
   robot_button_pub = n.advertise<yzmr9_msgs::Robot_button>("Robot_button", 5);
 }
@@ -72,22 +72,22 @@ int PSC::Query_Head_Pose(void)
 }
 
 //查询温度湿度Ｃ０２　ｖｏｃ
-int PSC::Query_TempHum_State(void)
-{
-  int tmp;
-  tmp = mRobotSerial->GetTempHum(psc_envir_set.Co2, psc_envir_set.Voc, psc_envir_set.temp, psc_envir_set.hum);
-  if(tmp != 0) return 0;
-  else return 1;
-}
+// int PSC::Query_TempHum_State(void)
+// {
+//   int tmp;
+//   tmp = mRobotSerial->GetTempHum(psc_envir_set.Co2, psc_envir_set.Voc, psc_envir_set.temp, psc_envir_set.hum);
+//   if(tmp != 0) return 0;
+//   else return 1;
+// }
 
 //查询ＰＭ
-int PSC::Query_PM_State(void)
-{
-  int tmp;
-  tmp = mRobotSerial->GetPM(psc_envir_set.Pm25, psc_envir_set.Pm10, psc_envir_set.Pm1_0, psc_envir_set.stata);
-  if(tmp != 0) return 0;
-  else return 1;
-}
+// int PSC::Query_PM_State(void)
+// {
+//   int tmp;
+//   tmp = mRobotSerial->GetPM(psc_envir_set.Pm25, psc_envir_set.Pm10, psc_envir_set.Pm1_0, psc_envir_set.stata);
+//   if(tmp != 0) return 0;
+//   else return 1;
+// }
 
 //查询障碍信息
 int PSC::Query_OBS_State(void)
@@ -114,7 +114,7 @@ int PSC::Query_Robot_Button(void)
   robot_button_msg.button_power = robot_button.power_button;
   //接收到关机信号
   if(robot_button_msg.button_power==1) system("shutdown now");
-  robot_button_msg.zs = robot_button.zs;
+  //robot_button_msg.zs = robot_button.zs;
   robot_button_pub.publish(robot_button_msg);
 }
 
@@ -154,16 +154,16 @@ int PSC::Query_Psc_All(void)
     psc_msg.get_pitch = psc_status_set.pitch;
     PSC_status_pub.publish(psc_msg);
     //发布环境数据
-    yzmr9_msgs::Envirment_data envir_msg;
-    envir_msg.Co2 = psc_envir_set.Co2;
-    envir_msg.Voc = psc_envir_set.Voc;
-    envir_msg.Temp = psc_envir_set.temp;
-    envir_msg.Hum = psc_envir_set.hum;
-    envir_msg.Pm25 = psc_envir_set.Pm25;
-    envir_msg.Pm10 = psc_envir_set.Pm10;
-    envir_msg.Pm1_0 = psc_envir_set.Pm1_0;
-    envir_msg.Stata = psc_envir_set.stata;
-    Envirment_pub.publish(envir_msg);
+    // yzmr9_msgs::Envirment_data envir_msg;
+    // envir_msg.Co2 = psc_envir_set.Co2;
+    // envir_msg.Voc = psc_envir_set.Voc;
+    // envir_msg.Temp = psc_envir_set.temp;
+    // envir_msg.Hum = psc_envir_set.hum;
+    // envir_msg.Pm25 = psc_envir_set.Pm25;
+    // envir_msg.Pm10 = psc_envir_set.Pm10;
+    // envir_msg.Pm1_0 = psc_envir_set.Pm1_0;
+    // envir_msg.Stata = psc_envir_set.stata;
+    // Envirment_pub.publish(envir_msg);
     //ROS_INFO("%.2f TEMP", envir_msg.Temp);
     /*
      *这个地方做个急停开关的事件

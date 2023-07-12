@@ -57,13 +57,15 @@ class RobotSerial
     // 获取 头部的状态
     int8_t GetHeadPose(int &Level, int &Vertical, int &switch_flag);
     // 获取温度
-    int8_t GetTempHum(float &Co2, float &Voc, float &Temp, float &Hum);
+    //int8_t GetTempHum(float &Co2, float &Voc, float &Temp, float &Hum);
     // 获取PM
-    int8_t GetPM(float &Pm25, float &Pm10, float &Pm1_0, float &Stata);
+    //int8_t GetPM(float &Pm25, float &Pm10, float &Pm1_0, float &Stata);
 
     int8_t GetNeckPose(int &height, int &limit, int &done, int light, int bebebe);
     
     int8_t get_robot_button(int &audio_button, int &power_button, int &zs);
+
+    int8_t SetSensorEn(int carLight, int turnLight);
 
     int8_t GetAutoSpeed(void);
     

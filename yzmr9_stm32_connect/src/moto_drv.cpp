@@ -121,6 +121,10 @@ int main(int argc, char **argv)
   ros::Subscriber sub_imu = n.subscribe("imu", 20, &MDRV::GetIMU_Callback, mMDRV);
   // 订阅遥控
   ros::Subscriber sub_joy = n.subscribe("joy", 1, &MDRV::GetJoy_Callback, mMDRV);
+  // 订阅超声
+  ros::Subscriber sub_ultra = n.subscribe("Ultrasound", 1, &MDRV::GetUltra_Callback, mMDRV);
+  // 订阅防撞條
+  ros::Subscriber sub_fz = n.subscribe("Ultrasound_result", 1, &MDRV::GetFZ_Callback, mMDRV);
   // 订阅tf
   ros::Subscriber tfa = n.subscribe("tf", 1, aaa);
   // 发布自动充电话题
@@ -183,6 +187,17 @@ void MDRV::moto_Timer_deal_autoCharge(void)
       set_vx = auto_vx;
       set_vth = auto_vth;
     }
+    else
+    {
+      //前超声触发
+      if(cs1 == 1 || cs3 == 1)
+        if(set_vx > 0) 
+          set_vx = 0.0;
+      //后超声触发
+      if(cs2 == 1)
+        if(set_vx < 0) 
+          set_vx = 0.0;
+    }
     if((autoChargeTaskFlag == 0 || charge_flag == 1) && !moveFlag)
     {
       set_vx = 0.0;
@@ -223,6 +238,19 @@ void MDRV::StopSwitch_Callback(const yzmr9_msgs::Emergency_Switch& stop_flag)
   // ROS_INFO_STREAM("stop_switch:" << stop_switch);
 }
 
+void MDRV::GetUltra_Callback(const yzmr9_msgs::Ultrasound& ultra)
+{
+  cs1 = ultra.cs_1;
+  cs2 = ultra.cs_2;
+  cs3 = ultra.cs_3;
+  ROS_INFO("cs1: %d, cs2: %d, cs3: %d", cs1, cs2, cs3);
+}
+
+void MDRV::GetFZ_Callback(const yzmr9_msgs::Ultrasound_result& fz)
+{
+  fz_result = fz.fz_obs;
+}
+
 void MDRV::Autocharge_Callback(const yzmr9_msgs::Autocharge_result& auto_result)
 {
   auto_vx = auto_result.linear;
@@ -256,6 +284,14 @@ void MDRV::cmd_Vel_Callback(const geometry_msgs::Twist& cmd_vel)
       set_vx = cmd_vel.linear.x;
       set_vy = cmd_vel.linear.y;
       set_vth = cmd_vel.angular.z;
+      //前超声、防撞條触发
+      if(cs1 == 1 || cs3 == 1 || fz_result == 1 || fz_result == 3)
+        if(set_vx > 0) 
+          set_vx = 0.0;
+      //后超声、防撞條触发
+      if(cs2 == 1 || fz_result == 2 || fz_result == 3)
+        if(set_vx < 0) 
+          set_vx = 0.0;
       // ROS_INFO("set_vx: %.2f, set_vy: %.2f, set_vth: %.2f", set_vx, set_vy, set_vth);
     }
   }
@@ -438,13 +474,14 @@ void MDRV::moto_Timer_deal_odom(void)
   tx_lear = set_vx*1000;
   tx_angle = set_vth*1000;
   // ROS_INFO("moto_en: %d", moto_en);
-  ROS_INFO("set_vx: %f, set_vth: %f", set_vx, set_vth);
+  // ROS_INFO("set_vx: %f, set_vth: %f", set_vx, set_vth);
   if((tx_lear!= 0 || tx_angle!=0) || stop_switch == 1 || charge_flag == 1)
   {
     if(moto_en != 1)
     {
       mMotoSerial->SetMotoEnable(1, 1, moto_en);
     }
+    move_cnt = 0;
   }
   else
   {

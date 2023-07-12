@@ -17,5 +17,6 @@
 #include  "robotserial.h"
 #include "yzmr9_msgs/PSC_get_neck_status.h"
 #include "yzmr9_msgs/Ultrasound.h"
+#include "yzmr9_msgs/CarLight_Cmd.h"
 
 #endif
