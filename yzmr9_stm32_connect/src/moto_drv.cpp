@@ -182,7 +182,7 @@ void MDRV::moto_Timer_deal_autoCharge(void)
   else
   {
     //进入自动对接充电桩任务
-    if(autoChargeTaskFlag == 1 && charge_flag == 0)
+    if(autoChargeTaskFlag == 1 && (charge_flag == 0 || charge_flag == 16))
     {
       set_vx = auto_vx;
       set_vth = auto_vth;
@@ -198,7 +198,7 @@ void MDRV::moto_Timer_deal_autoCharge(void)
         if(set_vx < 0) 
           set_vx = 0.0;
     }
-    if((autoChargeTaskFlag == 0 || charge_flag == 1) && !moveFlag)
+    if((autoChargeTaskFlag == 0 || charge_flag == 1 || charge_flag == 17) && !moveFlag)
     {
       set_vx = 0.0;
       set_vth = 0.0;
